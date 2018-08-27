@@ -12,6 +12,10 @@ const $ = require('gulp-load-plugins')({
 });
 const del = require('del');
 const browserSync = require('browser-sync').create();
+const webpackStream = require('webpack-stream');
+const webpack = webpackStream.webpack;
+const combiner = require('stream-combiner2').obj;
+const named = require('vinyl-named');
 
 const basePath = './src/';
 const paths = {
@@ -24,13 +28,33 @@ const paths = {
       basePath + 'styles/pages/*.css'
     ],
     scripts: {
-      all: basePath + 'components/**/*.js',
+      all: basePath + 'scripts/**/*.js',
+      pages: basePath + 'scripts/pages/*.js'
     }
   },
   build: './build/',
 };
 
 const out = gulp.dest.bind(gulp, paths.build);
+let webpackOptions = {
+  mode: isDevelopment ? 'development' : 'production',
+  watch: isDevelopment,
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: 'babel-loader'
+      }
+    ]
+  },
+  plugins: [
+    new webpack.NoEmitOnErrorsPlugin()
+  ],
+  output: {
+    publicPath: '',
+    filename: isDevelopment ? '[name].js' : '[name]-[chunkhash:10].js'
+  }
+};
 
 gulp.task('templates', function () {
   console.log('========== Подготовка исходного HTML');
@@ -64,15 +88,51 @@ gulp.task('styles', function () {
       browsers: ['last 2 versions', 'ie >= 11'],
       cascade: true
     }),)
-    .pipe($.csso())
+    .pipe($.if(!isDevelopment, $.csso()))
     .pipe(out())
     .pipe($.if(isDevelopment, browserSync.stream()))
+});
+
+gulp.task('scripts', function (callback) {
+  console.log('========== Подготовка исходного JS');
+
+  let firstBuildReady = false;
+
+  function done (err, stats) {
+    firstBuildReady = true;
+    if (err) return;
+    console.log(stats.toString({ colors: true }));
+  }
+
+  return gulp.src(paths.src.scripts.pages)
+    .pipe($.plumber({
+      errorHandler: $.notify.onError()
+    }))
+    .pipe(named())
+    .pipe(webpackStream(webpackOptions, null, done))
+    .pipe($.if(!isDevelopment, $.uglify()))
+    .pipe(out())
+    .on('data', function () {
+      if (firstBuildReady) {
+        callback()
+      }
+    })
+    .pipe($.if(isDevelopment, browserSync.stream()))
+});
+
+gulp.task('lint:js', function () {
+  return combiner(
+    gulp.src(paths.src.scripts.all, { since: gulp.lastRun('lint:js') }),
+    $.eslint(),
+    $.eslint.format(),
+    $.eslint.failAfterError()
+  ).on('error', $.notify.onError())
 });
 
 gulp.task('watch', function () {
   gulp.watch(paths.src.templates, gulp.series('templates'));
   gulp.watch(paths.src.styles, gulp.series('styles'));
-  // $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:js')));
+  $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:js')));
 });
 
 gulp.task('serve', function () {
@@ -92,8 +152,8 @@ gulp.task('build', gulp.series(
   gulp.parallel(
     'templates',
     'styles',
-    // 'scripts'
+    'scripts'
   ))
 );
 
-gulp.task('default', gulp.series('build', gulp.parallel('watch', 'serve')));
+gulp.task('default', gulp.series('lint:js', 'build', gulp.parallel('watch', 'serve')));
