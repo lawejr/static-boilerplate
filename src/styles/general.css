@@ -1,0 +1,80 @@
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+  outline: none;
+}
+
+html {
+  font-size: 14px;
+  min-height: 100%;
+  overflow-y: scroll;
+}
+
+body {
+  background: #f6f6f6;
+  box-sizing: border-box;
+  color: #333;
+  font-family: 'Proba', sans-serif;
+  height: 100%;
+  min-width: 320px;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 1024px;
+  width: 100%;
+}
+
+@media screen and (max-width: 768px) {
+  #root {
+    min-width: 100%;
+  }
+}
+
+.content-box {
+  box-sizing: content-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a,
+button {
+  cursor: pointer;
+}
+
+img {
+  max-width: 100%;
+}
+
+p {
+  margin: 0;
+}
+
+[disabled] {
+  pointer-events: none;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+  user-select: none;
+  -webkit-user-modify: read-only;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+select {
+  appearance: none;
+}
