@@ -1,0 +1,32 @@
+@font-face {
+  font-family: 'Proba';
+  font-weight: 300;
+  font-style: normal;
+  src:
+    local('Proba Pro Lt Regular'),
+    local('ProbaPro-Light'),
+    url('/static/ProbaPro-Light.woff2') format('woff2'),
+    url('/static/ProbaPro-Light.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Proba';
+  font-weight: normal;
+  font-style: normal;
+  src:
+    local('Proba Pro Regular'),
+    local('ProbaPro-Regular'),
+    url('/static/ProbaPro-Regular.woff2') format('woff2'),
+    url('/static/ProbaPro-Regular.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Proba';
+  font-weight: 500;
+  font-style: normal;
+  src:
+    local('Proba Pro Md Regular'),
+    local('ProbaPro-Medium'),
+    url('/static/ProbaPro-Medium.woff2') format('woff2'),
+    url('/static/ProbaPro-Medium.woff') format('woff');
+}

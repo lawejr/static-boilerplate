@@ -24,18 +24,32 @@ const paths = {
       basePath + 'views/pages/*.{html,njk}'
     ],
     styles: [
+      basePath + 'styles/fonts.css',
       basePath + 'styles/general.css',
       basePath + 'styles/pages/*.css'
     ],
     scripts: {
       all: basePath + 'scripts/**/*.js',
       pages: basePath + 'scripts/pages/*.js'
-    }
+    },
+    img: [
+      basePath + 'img/**/*.{png,jpg,jpeg,svg}'
+    ],
+    static: [
+      '!' + basePath + 'fonts/**/*.*',
+      basePath + 'fonts/**/*.{woff,woff2}'
+    ]
   },
   build: './build/',
 };
 
-const out = gulp.dest.bind(gulp, paths.build);
+const out = function (tail) {
+  let destPath = paths.build;
+
+  if (tail) destPath = destPath + tail;
+
+  return gulp.dest.call(gulp, destPath);
+};
 let webpackOptions = {
   mode: isDevelopment ? 'development' : 'production',
   watch: isDevelopment,
@@ -69,6 +83,14 @@ gulp.task('templates', function () {
         Include: path.join(__dirname, basePath + 'views/_include/')
       }
     }))
+    .pipe(
+      $.if(!isDevelopment, $.htmlmin({
+        collapseInlineTagWhitespace: true,
+        collapseWhitespace: true,
+        removeAttributeQuotes: true,
+        removeComments: true
+      }))
+    )
     .pipe(out())
     .pipe($.if(isDevelopment, browserSync.stream()))
 });
@@ -129,6 +151,23 @@ gulp.task('lint:js', function () {
   ).on('error', $.notify.onError())
 });
 
+gulp.task('img:opti', function () {
+  const action = isDevelopment ? 'Копирование' : 'Оптимизация';
+  console.log('========== ' + action + ' изображений');
+
+  return gulp.src(paths.src.img)
+    .pipe($.if(!isDevelopment, $.imagemin()))
+    .pipe($.flatten())
+    .pipe(out('static/'))
+});
+
+gulp.task('copy', function () {
+  console.log('========== Копирование статики');
+
+  return gulp.src(paths.src.static)
+    .pipe(out('static/'))
+});
+
 gulp.task('watch', function () {
   gulp.watch(paths.src.templates, gulp.series('templates'));
   gulp.watch(paths.src.styles, gulp.series('styles'));
@@ -152,7 +191,9 @@ gulp.task('build', gulp.series(
   gulp.parallel(
     'templates',
     'styles',
-    'scripts'
+    'scripts',
+    'img:opti',
+    'copy'
   ))
 );
 
