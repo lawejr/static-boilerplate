@@ -29,8 +29,8 @@ const paths = {
       basePath + 'styles/pages/*.css'
     ],
     scripts: {
-      all: basePath + 'scripts/**/*.js',
-      pages: basePath + 'scripts/pages/*.js'
+      all: basePath + 'scripts/**/*.{js,ts}',
+      pages: basePath + 'scripts/pages/*.{js,ts}'
     },
     img: [
       basePath + 'img/**/*.{png,jpg,jpeg,svg}'
@@ -53,11 +53,14 @@ const out = function (tail) {
 let webpackOptions = {
   mode: isDevelopment ? 'development' : 'production',
   watch: isDevelopment,
+  resolve: {
+    extensions: ['.ts', '.tsx']
+  },
   module: {
     rules: [
       {
-        test: /\.js$/,
-        use: 'babel-loader'
+        test: /\.ts$/,
+        use: 'awesome-typescript-loader'
       }
     ]
   },
@@ -131,7 +134,6 @@ gulp.task('scripts', function (callback) {
     }))
     .pipe(named())
     .pipe(webpackStream(webpackOptions, null, done))
-    .pipe($.if(!isDevelopment, $.uglify()))
     .pipe(out())
     .on('data', function () {
       if (firstBuildReady) {
@@ -141,12 +143,16 @@ gulp.task('scripts', function (callback) {
     .pipe($.if(isDevelopment, browserSync.stream()))
 });
 
-gulp.task('lint:js', function () {
+gulp.task('lint:ts', function () {
   return combiner(
-    gulp.src(paths.src.scripts.all, { since: gulp.lastRun('lint:js') }),
-    $.eslint(),
-    $.eslint.format(),
-    $.eslint.failAfterError()
+    gulp.src(paths.src.scripts.all, { since: gulp.lastRun('lint:ts') }),
+    $.tslint({
+      configuration: "./tslint.json"
+    }),
+    $.tslint.report({
+      emitError: true,
+      summarizeFailureOutput: true,
+    })
   ).on('error', $.notify.onError())
 });
 
@@ -170,7 +176,7 @@ gulp.task('copy', function () {
 gulp.task('watch', function () {
   gulp.watch(paths.src.templates, gulp.series('templates'));
   gulp.watch(paths.src.styles, gulp.series('styles'));
-  $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:js')));
+  $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:ts')));
 });
 
 gulp.task('serve', function () {
@@ -196,4 +202,4 @@ gulp.task('build', gulp.series(
   ))
 );
 
-gulp.task('default', gulp.series('lint:js', 'build', gulp.parallel('watch', 'serve')));
+gulp.task('default', gulp.series('lint:ts', 'build', gulp.parallel('watch', 'serve')));

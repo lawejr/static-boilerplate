@@ -1,0 +1,15 @@
+{
+  "extends": "tslint:recommended",
+  "root": true,
+  "env": {
+    "browser": true
+  },
+  "parserOptions": {
+    "sourceType": "module"
+  },
+  "rules": {
+    "semicolon": [true, "never"],
+    "member-access": [true, "no-public"],
+    "no-trailing-whitespace": [true, "ignore-blank-lines"]
+  }
+}
