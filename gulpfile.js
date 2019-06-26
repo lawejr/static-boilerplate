@@ -107,7 +107,6 @@ gulp.task('styles', function () {
       reporters: [{ formatter: 'string', console: true }]
     })))
     .pipe($.autoprefixer({
-      browsers: ['last 2 versions', 'ie >= 11'],
       cascade: true
     }),)
     .pipe($.if(!isDevelopment, $.csso()))
