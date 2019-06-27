@@ -2,20 +2,23 @@
 
 const env = process.env.NODE_ENV;
 const isDevelopment = !env || env === 'development';
-
 const path = require('path');
 const gulp = require('gulp');
 const $ = require('gulp-load-plugins')({
   rename: {
-    'gulp-nunjucks-render': 'nunjucks'
+    'gulp-nunjucks-render': 'nunjucks',
+    'gulp-hash-filename': 'hash'
   }
 });
+const fs = require('fs');
+const through = require('through2');
 const del = require('del');
 const browserSync = require('browser-sync').create();
 const webpackStream = require('webpack-stream');
 const webpack = webpackStream.webpack;
 const combiner = require('stream-combiner2').obj;
 const named = require('vinyl-named');
+const mkdir = require('mkdirp');
 
 const basePath = './src/';
 const paths = {
@@ -40,13 +43,15 @@ const paths = {
       basePath + 'fonts/**/*.{woff,woff2}'
     ]
   },
-  build: './build/',
+  build: './build/'
 };
 
 const out = function (tail) {
   let destPath = paths.build;
 
-  if (tail) destPath = destPath + tail;
+  if (tail) {
+    destPath += tail;
+  }
 
   return gulp.dest.call(gulp, destPath);
 };
@@ -76,6 +81,15 @@ let webpackOptions = {
 gulp.task('templates', function () {
   console.log('========== Подготовка исходного HTML');
 
+  const mapPath = paths.build + 'map.json'
+  let map = {}
+
+  if (fs.existsSync(mapPath))  {
+    map = JSON.parse(fs.readFileSync(mapPath))
+  }
+
+  const regExp = new RegExp(Object.keys(map).join('|'), 'g')
+
   return gulp
     .src(paths.src.templates, { since: gulp.lastRun('templates') })
     .pipe($.plumber({
@@ -87,13 +101,16 @@ gulp.task('templates', function () {
       }
     }))
     .pipe(
-      $.if(!isDevelopment, $.htmlmin({
+      $.if(!isDevelopment, $.replace(regExp, function(match) {
+        return map[match]
+      })
+      .pipe($.htmlmin({
         collapseInlineTagWhitespace: true,
         collapseWhitespace: true,
         removeAttributeQuotes: true,
         removeComments: true
       }))
-    )
+    ))
     .pipe(out())
     .pipe($.if(isDevelopment, browserSync.stream()))
 });
@@ -109,10 +126,16 @@ gulp.task('styles', function () {
     .pipe($.if(isDevelopment, $.stylelint({
       reporters: [{ formatter: 'string', console: true }]
     })))
-    .pipe($.autoprefixer({
-      cascade: true
-    }),)
-    .pipe($.if(!isDevelopment, $.csso()))
+    .pipe(
+      $.if(!isDevelopment,
+        $.hash()
+        .pipe(assetsMap())
+        .pipe($.autoprefixer({
+          cascade: true
+        }))
+        .pipe($.csso())
+      )
+    )
     .pipe(out())
     .pipe($.if(isDevelopment, browserSync.stream()))
 });
@@ -134,6 +157,7 @@ gulp.task('scripts', function (callback) {
     }))
     .pipe(named())
     .pipe(webpackStream(webpackOptions, null, done))
+    .pipe($.if(!isDevelopment, assetsMap()))
     .pipe(out())
     .on('data', function () {
       if (firstBuildReady) {
@@ -193,13 +217,34 @@ gulp.task('clean', function () {
 
 gulp.task('build', gulp.series(
   'clean',
-  gulp.parallel(
-    'templates',
-    'styles',
-    'scripts',
-    'img:opti',
-    'copy'
-  ))
+  gulp.parallel('styles', 'scripts'),
+  gulp.parallel('templates', 'img:opti', 'copy'))
 );
 
-gulp.task('default', gulp.series('lint:ts', 'build', gulp.parallel('watch', 'serve')));
+gulp.task('build:development', gulp.series(
+  'clean',
+  gulp.parallel('styles', 'scripts', 'templates', 'img:opti', 'copy'))
+);
+
+gulp.task('default', gulp.series('lint:ts', 'build:development', gulp.parallel('watch', 'serve')));
+
+function assetsMap() {
+  return through.obj((file, enc, cb) => {
+    const filePath = path.parse(file.path)
+    const nameChunks = filePath.name.split('-')
+    const hash = nameChunks[nameChunks.length - 1].split('.')
+    const key = filePath.name.replace(`-${hash}`, '') + filePath.ext
+    const hashedName = filePath.name + filePath.ext
+    const mapPath = paths.build + 'map.json'
+
+    if (!fs.existsSync(mapPath)) {
+      mkdir(paths.build)
+      fs.writeFileSync(paths.build + 'map.json', JSON.stringify({ [key]: hashedName }))
+    } else {
+      const content = JSON.parse(fs.readFileSync(mapPath))
+      fs.writeFileSync(paths.build + 'map.json', JSON.stringify(Object.assign(content, { [key]: hashedName })))
+    }
+
+    return cb(null, file);
+  });
+}
