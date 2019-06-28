@@ -13,10 +13,10 @@ const webpackStream = require('webpack-stream')
 const combiner = require('stream-combiner2').obj
 const named = require('vinyl-named')
 const mkdir = require('mkdirp')
+const settings = require('./configs/gulp-settings')
 
 // Initializations
 
-const webpack = webpackStream.webpack
 const $ = gulpLoadPlugins({
   rename: {
     'gulp-nunjucks-render': 'nunjucks',
@@ -26,56 +26,9 @@ const $ = gulpLoadPlugins({
 
 // Parameters
 
-const env = process.env.NODE_ENV
-const isDevelopment = !env || env === 'development'
-const basePath = './source/'
-const paths = {
-  source: {
-    templates: [
-      basePath + 'views/pages/*.{html,njk}'
-    ],
-    styles: [
-      basePath + 'styles/fonts.css',
-      basePath + 'styles/general.css',
-      basePath + 'styles/pages/*.css'
-    ],
-    scripts: {
-      all: basePath + 'scripts/**/*.{js,ts}',
-      pages: basePath + 'scripts/pages/*.{js,ts}'
-    },
-    images: [
-      basePath + 'images/**/*.{png,jpg,jpeg,svg}'
-    ],
-    static: [
-      '!' + basePath + 'fonts/**/*.*',
-      basePath + 'fonts/**/*.{woff,woff2}'
-    ]
-  },
-  build: './build/',
-  temporary: './build/.tmp/'
-}
-const webpackOptions = {
-  mode: isDevelopment ? 'development' : 'production',
-  watch: isDevelopment,
-  resolve: {
-    extensions: ['.ts', '.tsx']
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: 'awesome-typescript-loader'
-      }
-    ]
-  },
-  plugins: [
-    new webpack.NoEmitOnErrorsPlugin()
-  ],
-  output: {
-    publicPath: '',
-    filename: isDevelopment ? '[name].js' : '[name]-[chunkhash:10].js'
-  }
-}
+const isDevelopment = settings.isDevelopment
+const paths = settings.paths
+const webpackOptions = settings.webpackOptions
 
 // Tasks
 
@@ -128,7 +81,7 @@ function buildTemplates() {
     }))
     .pipe($.nunjucks({
       data: {
-        Include: path.join(__dirname, basePath + 'views/_include/')
+        Include: path.join(__dirname, paths.basePath + 'views/_include/')
       }
     }))
     .pipe(
