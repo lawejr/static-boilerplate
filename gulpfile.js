@@ -20,7 +20,8 @@ const settings = require('./configs/gulp-settings')
 const $ = gulpLoadPlugins({
   rename: {
     'gulp-nunjucks-render': 'nunjucks',
-    'gulp-hash-filename': 'hash'
+    'gulp-hash-filename': 'hash',
+    'gulp-group-concat': 'concat',
   }
 })
 
@@ -103,13 +104,17 @@ function buildStyles() {
   console.log('========== Подготовка исходного CSS')
 
   return gulp
-    .src(paths.source.styles, { since: gulp.lastRun('styles') })
+    .src(paths.basePath + paths.source.styles, { since: gulp.lastRun('styles') })
     .pipe($.plumber({
       errorHandler: $.notify.onError()
     }))
     .pipe($.if(isDevelopment, $.stylelint({
       reporters: [{ formatter: 'string', console: true }]
     })))
+    .pipe($.concat({
+      'index.css': [paths.source.styles, '!**/_general.css'],
+      'general.css': '**/_general.css'
+    }))
     .pipe(
       $.if(!isDevelopment, combiner(
         $.hash(),

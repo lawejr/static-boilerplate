@@ -8,11 +8,7 @@ const paths = {
     templates: [
       basePath + 'views/pages/*.{html,njk}'
     ],
-    styles: [
-      basePath + 'styles/fonts.css',
-      basePath + 'styles/general.css',
-      basePath + 'styles/pages/*.css'
-    ],
+    styles: '**/styles/**/*.css',
     scripts: {
       all: basePath + 'scripts/**/*.{js,ts}',
       pages: basePath + 'scripts/pages/*.{js,ts}'
