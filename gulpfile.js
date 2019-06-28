@@ -1,26 +1,34 @@
-'use strict';
+'use strict'
 
-const env = process.env.NODE_ENV;
-const isDevelopment = !env || env === 'development';
-const path = require('path');
-const gulp = require('gulp');
-const $ = require('gulp-load-plugins')({
+// Imports
+
+const path = require('path')
+const gulp = require('gulp')
+const gulpLoadPlugins = require('gulp-load-plugins')
+const fs = require('fs')
+const through = require('through2')
+const del = require('del')
+const browserSync = require('browser-sync').create()
+const webpackStream = require('webpack-stream')
+const combiner = require('stream-combiner2').obj
+const named = require('vinyl-named')
+const mkdir = require('mkdirp')
+
+// Initializations
+
+const webpack = webpackStream.webpack
+const $ = gulpLoadPlugins({
   rename: {
     'gulp-nunjucks-render': 'nunjucks',
     'gulp-hash-filename': 'hash'
   }
-});
-const fs = require('fs');
-const through = require('through2');
-const del = require('del');
-const browserSync = require('browser-sync').create();
-const webpackStream = require('webpack-stream');
-const webpack = webpackStream.webpack;
-const combiner = require('stream-combiner2').obj;
-const named = require('vinyl-named');
-const mkdir = require('mkdirp');
+})
 
-const basePath = './src/';
+// Parameters
+
+const env = process.env.NODE_ENV
+const isDevelopment = !env || env === 'development'
+const basePath = './src/'
 const paths = {
   src: {
     templates: [
@@ -44,18 +52,8 @@ const paths = {
     ]
   },
   build: './build/'
-};
-
-const out = function (tail) {
-  let destPath = paths.build;
-
-  if (tail) {
-    destPath += tail;
-  }
-
-  return gulp.dest.call(gulp, destPath);
-};
-let webpackOptions = {
+}
+const webpackOptions = {
   mode: isDevelopment ? 'development' : 'production',
   watch: isDevelopment,
   resolve: {
@@ -76,10 +74,40 @@ let webpackOptions = {
     publicPath: '',
     filename: isDevelopment ? '[name].js' : '[name]-[chunkhash:10].js'
   }
-};
+}
 
-gulp.task('templates', function () {
-  console.log('========== Подготовка исходного HTML');
+// Tasks
+
+gulp.task('templates', buildTemplates)
+gulp.task('styles', buildStyles)
+gulp.task('scripts', buildScripts)
+gulp.task('lint:ts', lintTypescript)
+gulp.task('img:opti', compressImages)
+gulp.task('copy', copyStatic)
+gulp.task('watch', runWatching)
+gulp.task('serve', startServer)
+gulp.task('clean', cleanBuildFolder)
+gulp.task('build', gulp.series(
+    'clean',
+    gulp.parallel('styles', 'scripts'),
+    gulp.parallel('templates', 'img:opti', 'copy')
+  )
+)
+gulp.task('build:development', gulp.series(
+    'clean',
+    gulp.parallel('styles', 'scripts', 'templates', 'img:opti', 'copy')
+  )
+)
+gulp.task('default', gulp.series(
+    'lint:ts', 'build:development',
+    gulp.parallel('watch', 'serve')
+  )
+)
+
+// Task functions
+
+function buildTemplates() {
+  console.log('========== Подготовка исходного HTML')
 
   const mapPath = paths.build + 'map.json'
   let map = {}
@@ -101,22 +129,22 @@ gulp.task('templates', function () {
       }
     }))
     .pipe(
-      $.if(!isDevelopment, $.replace(regExp, function(match) {
-        return map[match]
-      })
-      .pipe($.htmlmin({
-        collapseInlineTagWhitespace: true,
-        collapseWhitespace: true,
-        removeAttributeQuotes: true,
-        removeComments: true
-      }))
-    ))
-    .pipe(out())
+      $.if(!isDevelopment, combiner(
+        $.replace(regExp, (match) => map[match]),
+        $.htmlmin({
+          collapseInlineTagWhitespace: true,
+          collapseWhitespace: true,
+          removeAttributeQuotes: true,
+          removeComments: true
+        }))
+      )
+    )
+    .pipe(outToDestination())
     .pipe($.if(isDevelopment, browserSync.stream()))
-});
+}
 
-gulp.task('styles', function () {
-  console.log('========== Подготовка исходного CSS');
+function buildStyles() {
+  console.log('========== Подготовка исходного CSS')
 
   return gulp
     .src(paths.src.styles, { since: gulp.lastRun('styles') })
@@ -127,28 +155,29 @@ gulp.task('styles', function () {
       reporters: [{ formatter: 'string', console: true }]
     })))
     .pipe(
-      $.if(!isDevelopment,
-        $.hash()
-        .pipe(assetsMap())
-        .pipe($.autoprefixer({
+      $.if(!isDevelopment, combiner(
+        $.hash(),
+        createAssetsMap(),
+        $.autoprefixer({
           cascade: true
-        }))
-        .pipe($.csso())
-      )
+        }),
+        $.csso()
+    ))
     )
-    .pipe(out())
+    .pipe(outToDestination())
     .pipe($.if(isDevelopment, browserSync.stream()))
-});
+}
 
-gulp.task('scripts', function (callback) {
-  console.log('========== Подготовка исходного JS');
+function buildScripts(callback) {
+  console.log('========== Подготовка исходного JS')
 
-  let firstBuildReady = false;
+  let firstBuildReady = false
 
-  function done (err, stats) {
-    firstBuildReady = true;
-    if (err) return;
-    console.log(stats.toString({ colors: true }));
+  const done = (err, stats) => {
+    firstBuildReady = true
+    if (!err) {
+      console.log(stats.toString({ colors: true }))
+    }
   }
 
   return gulp.src(paths.src.scripts.pages)
@@ -157,17 +186,17 @@ gulp.task('scripts', function (callback) {
     }))
     .pipe(named())
     .pipe(webpackStream(webpackOptions, null, done))
-    .pipe($.if(!isDevelopment, assetsMap()))
-    .pipe(out())
+    .pipe($.if(!isDevelopment, createAssetsMap()))
+    .pipe(outToDestination())
     .on('data', function () {
       if (firstBuildReady) {
         callback()
       }
     })
     .pipe($.if(isDevelopment, browserSync.stream()))
-});
+}
 
-gulp.task('lint:ts', function () {
+function lintTypescript() {
   return combiner(
     gulp.src(paths.src.scripts.all, { since: gulp.lastRun('lint:ts') }),
     $.tslint({
@@ -178,57 +207,43 @@ gulp.task('lint:ts', function () {
       summarizeFailureOutput: true,
     })
   ).on('error', $.notify.onError())
-});
+}
 
-gulp.task('img:opti', function () {
-  const action = isDevelopment ? 'Копирование' : 'Оптимизация';
-  console.log('========== ' + action + ' изображений');
+function compressImages() {
+  const action = isDevelopment ? 'Копирование' : 'Оптимизация'
+  console.log('========== ' + action + ' изображений')
 
   return gulp.src(paths.src.img)
     .pipe($.if(!isDevelopment, $.imagemin()))
     .pipe($.flatten())
-    .pipe(out('static/'))
-});
+    .pipe(outToDestination('static/'))
+}
 
-gulp.task('copy', function () {
-  console.log('========== Копирование статики');
+function copyStatic() {
+  console.log('========== Копирование статики')
+  return gulp.src(paths.src.static).pipe(outToDestination('static/'))
+}
 
-  return gulp.src(paths.src.static)
-    .pipe(out('static/'))
-});
+function runWatching() {
+  gulp.watch(paths.src.templates, gulp.series('templates'))
+  gulp.watch(paths.src.styles, gulp.series('styles'))
+  $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:ts')))
+}
 
-gulp.task('watch', function () {
-  gulp.watch(paths.src.templates, gulp.series('templates'));
-  gulp.watch(paths.src.styles, gulp.series('styles'));
-  $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:ts')));
-});
-
-gulp.task('serve', function () {
+function startServer() {
   browserSync.init({
     server: paths.build
   })
-});
+}
 
-gulp.task('clean', function () {
-  console.log('========== Очистка папок сборки');
-
+function cleanBuildFolder() {
+  console.log('========== Очистка папок сборки')
   return del(paths.build)
-});
+}
 
-gulp.task('build', gulp.series(
-  'clean',
-  gulp.parallel('styles', 'scripts'),
-  gulp.parallel('templates', 'img:opti', 'copy'))
-);
+// Helpers
 
-gulp.task('build:development', gulp.series(
-  'clean',
-  gulp.parallel('styles', 'scripts', 'templates', 'img:opti', 'copy'))
-);
-
-gulp.task('default', gulp.series('lint:ts', 'build:development', gulp.parallel('watch', 'serve')));
-
-function assetsMap() {
+function createAssetsMap() {
   return through.obj((file, enc, cb) => {
     const filePath = path.parse(file.path)
     const nameChunks = filePath.name.split('-')
@@ -237,14 +252,26 @@ function assetsMap() {
     const hashedName = filePath.name + filePath.ext
     const mapPath = paths.build + 'map.json'
 
-    if (!fs.existsSync(mapPath)) {
+    if (fs.existsSync(mapPath)) {
+      const content = JSON.parse(fs.readFileSync(mapPath))
+
+      content[key] = hashedName
+      fs.writeFileSync(paths.build + 'map.json', JSON.stringify(content))
+    } else {
       mkdir(paths.build)
       fs.writeFileSync(paths.build + 'map.json', JSON.stringify({ [key]: hashedName }))
-    } else {
-      const content = JSON.parse(fs.readFileSync(mapPath))
-      fs.writeFileSync(paths.build + 'map.json', JSON.stringify(Object.assign(content, { [key]: hashedName })))
     }
 
-    return cb(null, file);
-  });
+    return cb(null, file)
+  })
+}
+
+function outToDestination(tail) {
+  let destPath = paths.build
+
+  if (tail) {
+    destPath += tail
+  }
+
+  return gulp.dest.call(gulp, destPath)
 }
