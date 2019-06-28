@@ -51,7 +51,8 @@ const paths = {
       basePath + 'fonts/**/*.{woff,woff2}'
     ]
   },
-  build: './build/'
+  build: './build/',
+  temporary: './build/.tmp/'
 }
 const webpackOptions = {
   mode: isDevelopment ? 'development' : 'production',
@@ -86,15 +87,17 @@ gulp.task('img:opti', compressImages)
 gulp.task('copy', copyStatic)
 gulp.task('watch', runWatching)
 gulp.task('serve', startServer)
-gulp.task('clean', cleanBuildFolder)
+gulp.task('clean:build', cleanFolder.bind(this, paths.build))
+gulp.task('clean:temp', cleanFolder.bind(this, paths.temporary))
 gulp.task('build', gulp.series(
-    'clean',
+    'clean:build',
     gulp.parallel('styles', 'scripts'),
-    gulp.parallel('templates', 'img:opti', 'copy')
+    gulp.parallel('templates', 'img:opti', 'copy'),
+    'clean:temp'
   )
 )
 gulp.task('build:development', gulp.series(
-    'clean',
+    'clean:build',
     gulp.parallel('styles', 'scripts', 'templates', 'img:opti', 'copy')
   )
 )
@@ -109,7 +112,7 @@ gulp.task('default', gulp.series(
 function buildTemplates() {
   console.log('========== Подготовка исходного HTML')
 
-  const mapPath = paths.build + 'map.json'
+  const mapPath = paths.temporary + 'map.json'
   let map = {}
 
   if (fs.existsSync(mapPath))  {
@@ -236,9 +239,9 @@ function startServer() {
   })
 }
 
-function cleanBuildFolder() {
-  console.log('========== Очистка папок сборки')
-  return del(paths.build)
+function cleanFolder(path) {
+  console.log('========== Очистка папки ' + path)
+  return del(path)
 }
 
 // Helpers
@@ -250,16 +253,16 @@ function createAssetsMap() {
     const hash = nameChunks[nameChunks.length - 1].split('.')
     const key = filePath.name.replace(`-${hash}`, '') + filePath.ext
     const hashedName = filePath.name + filePath.ext
-    const mapPath = paths.build + 'map.json'
+    const mapPath = paths.temporary + 'map.json'
 
     if (fs.existsSync(mapPath)) {
       const content = JSON.parse(fs.readFileSync(mapPath))
 
       content[key] = hashedName
-      fs.writeFileSync(paths.build + 'map.json', JSON.stringify(content))
+      fs.writeFileSync(mapPath, JSON.stringify(content))
     } else {
-      mkdir(paths.build)
-      fs.writeFileSync(paths.build + 'map.json', JSON.stringify({ [key]: hashedName }))
+      mkdir.sync(paths.temporary)
+      fs.writeFileSync(mapPath, JSON.stringify({ [key]: hashedName }))
     }
 
     return cb(null, file)
