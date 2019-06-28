@@ -12,11 +12,11 @@
 </head>
 
 <body>
-<!--[if lte IE 9]>
-<p class="browsehappy">Ваш браузер <strong>устарел</strong>. Пожалуйста, <a
-  href="http://browsehappy.com/">обновите его</a>.</p>
-<![endif]-->
-{% block content %}{% endblock %}
+  <!--[if lte IE 9]>
+  <p class="browsehappy">Ваш браузер <strong>устарел</strong>. Пожалуйста, <a
+    href="http://browsehappy.com/">обновите его</a>.</p>
+  <![endif]-->
+  {% block content %}{% endblock %}
+  {% block scripts %}{% endblock %}
 </body>
-{% block scripts %}{% endblock %}
 </html>
