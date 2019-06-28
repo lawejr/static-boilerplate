@@ -28,9 +28,9 @@ const $ = gulpLoadPlugins({
 
 const env = process.env.NODE_ENV
 const isDevelopment = !env || env === 'development'
-const basePath = './src/'
+const basePath = './source/'
 const paths = {
-  src: {
+  source: {
     templates: [
       basePath + 'views/pages/*.{html,njk}'
     ],
@@ -43,8 +43,8 @@ const paths = {
       all: basePath + 'scripts/**/*.{js,ts}',
       pages: basePath + 'scripts/pages/*.{js,ts}'
     },
-    img: [
-      basePath + 'img/**/*.{png,jpg,jpeg,svg}'
+    images: [
+      basePath + 'images/**/*.{png,jpg,jpeg,svg}'
     ],
     static: [
       '!' + basePath + 'fonts/**/*.*',
@@ -83,7 +83,7 @@ gulp.task('templates', buildTemplates)
 gulp.task('styles', buildStyles)
 gulp.task('scripts', buildScripts)
 gulp.task('lint:ts', lintTypescript)
-gulp.task('img:opti', compressImages)
+gulp.task('images', compressImages)
 gulp.task('copy', copyStatic)
 gulp.task('watch', runWatching)
 gulp.task('serve', startServer)
@@ -92,13 +92,13 @@ gulp.task('clean:temp', cleanFolder.bind(this, paths.temporary))
 gulp.task('build', gulp.series(
     'clean:build',
     gulp.parallel('styles', 'scripts'),
-    gulp.parallel('templates', 'img:opti', 'copy'),
+    gulp.parallel('templates', 'images', 'copy'),
     'clean:temp'
   )
 )
 gulp.task('build:development', gulp.series(
     'clean:build',
-    gulp.parallel('styles', 'scripts', 'templates', 'img:opti', 'copy')
+    gulp.parallel('styles', 'scripts', 'templates', 'images', 'copy')
   )
 )
 gulp.task('default', gulp.series(
@@ -122,7 +122,7 @@ function buildTemplates() {
   const regExp = new RegExp(Object.keys(map).join('|'), 'g')
 
   return gulp
-    .src(paths.src.templates, { since: gulp.lastRun('templates') })
+    .src(paths.source.templates, { since: gulp.lastRun('templates') })
     .pipe($.plumber({
       errorHandler: $.notify.onError()
     }))
@@ -150,7 +150,7 @@ function buildStyles() {
   console.log('========== Подготовка исходного CSS')
 
   return gulp
-    .src(paths.src.styles, { since: gulp.lastRun('styles') })
+    .src(paths.source.styles, { since: gulp.lastRun('styles') })
     .pipe($.plumber({
       errorHandler: $.notify.onError()
     }))
@@ -183,7 +183,7 @@ function buildScripts(callback) {
     }
   }
 
-  return gulp.src(paths.src.scripts.pages)
+  return gulp.src(paths.source.scripts.pages)
     .pipe($.plumber({
       errorHandler: $.notify.onError()
     }))
@@ -201,7 +201,7 @@ function buildScripts(callback) {
 
 function lintTypescript() {
   return combiner(
-    gulp.src(paths.src.scripts.all, { since: gulp.lastRun('lint:ts') }),
+    gulp.src(paths.source.scripts.all, { since: gulp.lastRun('lint:ts') }),
     $.tslint({
       configuration: "./tslint.json"
     }),
@@ -216,7 +216,7 @@ function compressImages() {
   const action = isDevelopment ? 'Копирование' : 'Оптимизация'
   console.log('========== ' + action + ' изображений')
 
-  return gulp.src(paths.src.img)
+  return gulp.src(paths.source.images)
     .pipe($.if(!isDevelopment, $.imagemin()))
     .pipe($.flatten())
     .pipe(outToDestination('static/'))
@@ -224,13 +224,13 @@ function compressImages() {
 
 function copyStatic() {
   console.log('========== Копирование статики')
-  return gulp.src(paths.src.static).pipe(outToDestination('static/'))
+  return gulp.src(paths.source.static).pipe(outToDestination('static/'))
 }
 
 function runWatching() {
-  gulp.watch(paths.src.templates, gulp.series('templates'))
-  gulp.watch(paths.src.styles, gulp.series('styles'))
-  $.if(isDevelopment, gulp.watch(paths.src.scripts.all, gulp.series('lint:ts')))
+  gulp.watch(paths.source.templates, gulp.series('templates'))
+  gulp.watch(paths.source.styles, gulp.series('styles'))
+  $.if(isDevelopment, gulp.watch(paths.source.scripts.all, gulp.series('lint:ts')))
 }
 
 function startServer() {
