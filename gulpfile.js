@@ -112,8 +112,8 @@ function buildStyles() {
       reporters: [{ formatter: 'string', console: true }]
     })))
     .pipe($.concat({
-      'index.css': [paths.source.styles, '!**/_general.css'],
-      'general.css': '**/_general.css'
+      'general.css': ['**/_general.css', '**/_layout.css'],
+      'index.css': [paths.source.styles, '!**/_general.css']
     }))
     .pipe(
       $.if(!isDevelopment, combiner(

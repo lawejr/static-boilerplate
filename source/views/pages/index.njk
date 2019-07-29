@@ -1,3 +1,5 @@
+{% set pageName = "index-page" %}
+
 {% extends Include + "layout.njk" %}
 
 {% block content %}
@@ -8,7 +10,10 @@
       </li>
     {% endfor %}
   </ul>
-  <img src="/static/catfuck.png" alt="cat">
+  <a href="/profile.html">
+    Смотреть профиль
+    <img src="/static/catfuck.png" alt="cat">
+  </a>
 {% endblock %}
 
 {% block scripts %}
